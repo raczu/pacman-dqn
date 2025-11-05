@@ -1,0 +1,31 @@
+[project]
+name = "pacman-dqn"
+version = "0.1.0"
+description = "Deep Q-Network implementation for Ms. Pac-Man"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "ale-py>=0.11.2",
+    "gymnasium>=1.2.2",
+    "tensorflow>=2.20.0",
+    "typer>=0.20.0",
+]
+
+[dependency-groups]
+dev = [
+    "black>=25.9.0",
+    "pre-commit>=4.3.0",
+    "ruff>=0.14.3",
+]
+
+[tool.black]
+line-length = 100
+
+[tool.ruff]
+target-version = "py313"
+line-length = 100
+src = ["agent"]
+
+[tool.ruff.lint]
+select = ["B", "C", "E", "F", "I", "PIE", "W", "TID"]
+ignore = ["E501"]
