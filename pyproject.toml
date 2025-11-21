@@ -1,5 +1,5 @@
 [project]
-name = "agent"
+name = "pacman"
 version = "0.1.0"
 description = "Deep Q-Network implementation for Ms. Pac-Man"
 readme = "README.md"
@@ -8,12 +8,13 @@ dependencies = [
     "ale-py>=0.11.2",
     "gymnasium>=1.2.2",
     "matplotlib>=3.10.7",
+    "opencv-python>=4.12.0.88",
     "tensorflow>=2.20.0",
     "typer>=0.20.0",
 ]
 
 [project.scripts]
-pacman-agent = "agent.cli:app"
+pacman-agent = "pacman.cli:app"
 
 [build-system]
 requires = ["uv_build>=0.9.6,<0.10.0"]

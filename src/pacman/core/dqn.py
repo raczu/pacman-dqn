@@ -1,13 +1,16 @@
+import json
 import random
 from collections import deque
-from typing import Literal, NamedTuple
+from dataclasses import asdict, dataclass
+from typing import Literal
 
 import numpy as np
 import tensorflow as tf
 from tensorflow.keras import Model, layers
 
 
-class Experience(NamedTuple):
+@dataclass(frozen=True)
+class Experience:
     """
     Single experience for DQN replay memory.
 
@@ -16,29 +19,52 @@ class Experience(NamedTuple):
         action (int): The action taken.
         reward (float): The reward received.
         next_state (np.ndarray): The next state observed after taking the action.
-        terminated (bool): Whether the episode terminated after this experience.
+        done (bool): Whether the episode terminated after this experience.
     """
 
     state: np.ndarray
     action: int
     reward: float
     next_state: np.ndarray
-    terminated: bool
+    done: bool
+
+
+@dataclass(frozen=True, slots=True)
+class TrainingStats:
+    """Statistics for a single training step."""
+
+    episode: int
+    step: int
+    epsilon: float
+    reward: float
+    loss: float
+
+    def jsonify(self) -> str:
+        return json.dumps(asdict(self))
 
 
 class ReplayMemory:
     def __init__(self, maxlen: int) -> None:
-        self.memory = deque(maxlen=maxlen)
+        self._memory = deque(maxlen=maxlen)
 
     def push(self, experience: Experience) -> None:
-        self.memory.append(experience)
+        self._memory.append(experience)
 
-    def sample(self, size: int) -> list[Experience]:
-        """Randomly sample a batch of experiences from memory."""
-        return random.sample(self.memory, size)
+    def sample(self, size: int) -> tuple[np.ndarray, ...]:
+        """Randomly sample a batch of experiences from memory.
+
+        Converts the sampled experiences into numpy arrays and returns them as a tuple.
+        """
+        batch = random.sample(self._memory, size)
+        states = np.stack([exp.state for exp in batch])
+        actions = np.array([exp.action for exp in batch])
+        rewards = np.array([exp.reward for exp in batch])
+        next_states = np.stack([exp.next_state for exp in batch])
+        dones = np.array([exp.done for exp in batch])
+        return states, actions, rewards, next_states, dones
 
     def __len__(self) -> int:
-        return len(self.memory)
+        return len(self._memory)
 
 
 class PacManDQN(Model):
@@ -74,7 +100,7 @@ class EpsilonGreedy:
             mode: Decay mode, either linear ("lin") or exponential ("exp").
         """
         if mode not in ("lin", "exp"):
-            raise ValueError("mode must be 'lin' or 'exp'")
+            raise ValueError("Mode must be 'lin' or 'exp'")
         self.start = start
         self.end = end
         self.steps = steps
