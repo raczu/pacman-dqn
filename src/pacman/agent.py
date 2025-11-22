@@ -30,18 +30,20 @@ class PacManAgent:
             settings.EPSILON_DECAY_MODE,
         )
         self._memory = ReplayMemory(settings.REPLAY_MEMORY_SIZE)
-
-        optimizer = tf.keras.optimizers.Adam(settings.LEARNING_RATE)
         self._online_network = PacManDQN(env.action_space.n)  # noqa: F821
-        self._online_network.compile(loss="mse", optimizer=optimizer)
         self._target_network = PacManDQN(env.action_space.n)  # noqa: F821
+        optimizer = tf.keras.optimizers.Adam(settings.LEARNING_RATE)
+        self._online_network.compile(loss="mse", optimizer=optimizer)
         self._target_network.compile(loss="mse", optimizer=optimizer)
 
-    @classmethod
-    def load(cls, model: Path) -> Self:
+    def load(self, model: Path) -> Self:
         """Load a trained agent from a file."""
-        if not model.suffix.lower().endswith("h5"):
-            raise ValueError("Model file with weights must end with 'h5'")
+        if not model.name.lower().endswith(".weights.h5"):
+            raise ValueError("Model file with weights must end with '.weights.h5'")
+        self._online_network.predict(
+            tf.random.normal((1,) + self._env.observation_space.shape), verbose=0
+        )
+        self._online_network.load_weights(model)
 
     def _warmup_replay_memory(self) -> None:
         state = self._env.reset()[0]
@@ -93,7 +95,7 @@ class PacManAgent:
             directory = output / "checkpoints"
             if not directory.exists():
                 directory.mkdir()
-            self._online_network.save_weights(directory / f"agent-ep{stats.episode}.h5")
+            self._online_network.save_weights(directory / f"agent-ep{stats.episode}.weights.h5")
 
         if stats.episode % 10 == 0 or stats.episode == 1:
             logger.info(
@@ -159,7 +161,7 @@ class PacManAgent:
         self._train_over_episodes(output)
 
         logger.info("Training completed, saving final model to: %s", output / "agent-final.h5")
-        self._online_network.save_weights(output / "agent-final.h5")
+        self._online_network.save_weights(output / "agent-final.weights.h5")
         logger.info("Total training time: %s", datetime.now() - start)
 
     def validate(self) -> None:
