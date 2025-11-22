@@ -7,7 +7,15 @@ import gymnasium as gym
 import numpy as np
 import tensorflow as tf
 
-from pacman.core import EpsilonGreedy, Experience, PacManDQN, ReplayMemory, TrainingStats, settings
+from pacman.core import (
+    EpsilonGreedy,
+    Experience,
+    PacManDQN,
+    ReplayMemory,
+    TrainingStats,
+    add_file_handler,
+    settings,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -89,7 +97,7 @@ class PacManAgent:
 
         if stats.episode % 10 == 0 or stats.episode == 1:
             logger.info(
-                "Ep %4d | R: %6.1f | Avg R: %6.1f | e: %.3f | Step: %d",
+                "Ep %d | R: %6.1f | Avg R: %6.1f | e: %.3f | Step: %d",
                 stats.episode,
                 rewards[-1],
                 np.mean(rewards[-10:]),
@@ -105,7 +113,6 @@ class PacManAgent:
             done = False
             total = 0.0
             loss = 0.0
-
             while not done:
                 action = self.act(state, step=step)
                 next_state, reward, done, _, _ = self._env.step(action)
@@ -120,6 +127,7 @@ class PacManAgent:
                     loss = self._replay_experience()
                     self._soft_update_target_network()
                 step += 1
+
             rewards.append(total)
             stats = TrainingStats(
                 episode=episode,
@@ -136,11 +144,13 @@ class PacManAgent:
         output = output / f"training-{ts}"
         logger.info("Creating output directory for training results: %s", output)
         output.mkdir()
+        add_file_handler(output / "training.log", logger=logger)
 
         logger.info("Saving training settings to: %s", output / "settings.json")
         with open(output / "settings.json", "w") as f:
             f.write(settings.jsonify())
 
+        start = datetime.now()
         logger.info("Training started, total episodes: %d", settings.TOTAL_EPISODES)
         logger.info("Warming up replay memory (min size: %d)", settings.MIN_REPLAY_MEMORY_SIZE)
         self._warmup_replay_memory()
@@ -150,6 +160,7 @@ class PacManAgent:
 
         logger.info("Training completed, saving final model to: %s", output / "agent-final.h5")
         self._online_network.save_weights(output / "agent-final.h5")
+        logger.info("Total training time: %s", datetime.now() - start)
 
     def validate(self) -> None:
         """Run the trained agent in the Atari environment."""

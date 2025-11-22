@@ -8,7 +8,7 @@ import typer
 from gymnasium.wrappers import AtariPreprocessing, FrameStackObservation, TransformObservation
 
 from pacman.agent import PacManAgent
-from pacman.core import settings
+from pacman.core import configure_logger, settings
 from pacman.utils import HWNObservation, parse_duration, rmtree
 
 # Register ale-py in Gymnasium API to use Ms. Pac-Man environment.
@@ -31,6 +31,7 @@ TRAINING_DATA_DURATION: str = typer.Option(
 @app.command()
 def train(output: Path = TRAIN_OUTPUT_PATH) -> None:
     """Train the Ms. Pac-Man agent."""
+    configure_logger()
     env = gym.make(
         "ALE/MsPacman-v5", frameskip=1, repeat_action_probability=settings.REPEAT_ACTION_PROBABILITY
     )
