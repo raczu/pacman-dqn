@@ -39,7 +39,7 @@ class PacManAgent:
 
     @classmethod
     def load(cls, model: Path) -> Self:
-        """Load a trained pacman from a file."""
+        """Load a trained agent from a file."""
         if not model.suffix.lower().endswith("h5"):
             raise ValueError("Model file with weights must end with 'h5'")
 
@@ -139,7 +139,7 @@ class PacManAgent:
             self._summarize_episode(stats, rewards, output)
 
     def train(self, output: Path) -> None:
-        """Train the pacman and save results to the output path."""
+        """Train the agent and save results to the output path."""
         ts = datetime.now().strftime("%Y%m%d%H%M%S")
         output = output / f"training-{ts}"
         logger.info("Creating output directory for training results: %s", output)
