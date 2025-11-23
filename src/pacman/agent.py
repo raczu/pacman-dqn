@@ -32,12 +32,12 @@ class PacManAgent:
         self._memory = ReplayMemory(settings.REPLAY_MEMORY_SIZE)
 
         self._online_network = PacManDQN(
-            env.action_space.n,
-            env.observation_space.shape,  # noqa: F821
+            env.action_space.n,  # noqa: F821
+            env.observation_space.shape,
         )
         self._target_network = PacManDQN(
-            env.action_space.n,
-            env.observation_space.shape,  # noqa: F821
+            env.action_space.n,  # noqa: F821
+            env.observation_space.shape,
         )
         self._online_network.compile(
             loss="mse", optimizer=tf.keras.optimizers.Adam(settings.LEARNING_RATE)
@@ -171,7 +171,9 @@ class PacManAgent:
         logger.info("Starting main training loop with %d experiences", len(self._memory))
         self._train_over_episodes(output)
 
-        logger.info("Training completed, saving final model to: %s", output / "agent-final.h5")
+        logger.info(
+            "Training completed, saving final model to: %s", output / "agent-final.weights.h5"
+        )
         self._online_network.save_weights(output / "agent-final.weights.h5")
         logger.info("Total training time: %s", datetime.now() - start)
 

@@ -7,18 +7,18 @@ class Settings:
     DISCOUNT_FACTOR: float = 0.99
     EPSILON_START: float = 1.0
     EPSILON_END: float = 0.01
-    EPSILON_DECAY_STEPS: int = 200_000
-    EPSILON_DECAY_MODE: Literal["lin", "exp"] = "exp"
+    EPSILON_DECAY_STEPS: int = 300_000
+    EPSILON_DECAY_MODE: Literal["lin", "exp"] = "lin"
     BATCH_SIZE: int = 64
-    MIN_REPLAY_MEMORY_SIZE: int = 1000
-    REPLAY_MEMORY_SIZE: int = 80_000
+    MIN_REPLAY_MEMORY_SIZE: int = 50_000
+    REPLAY_MEMORY_SIZE: int = 100_000
     TOTAL_EPISODES: int = 1000
-    TRAIN_FREQ: int = 5
-    NETWORK_SYNC_FREQ: int = 50
+    TRAIN_FREQ: int = 4
+    NETWORK_SYNC_FREQ: int = 1000
     CHECKPOINT_FREQ: int = 100
     TAU: float = 1.0
     FRAME_SKIP: int = 4
-    REPEAT_ACTION_PROBABILITY: float = 0
+    REPEAT_ACTION_PROBABILITY: float = 0.25
     FRAME_STACK_SIZE: int = 4
 
     def jsonify(self, indent: int = 2) -> str:
