@@ -31,19 +31,13 @@ class PacManAgent:
         )
         self._memory = ReplayMemory(settings.REPLAY_MEMORY_SIZE)
 
-        self._online_network = PacManDQN(
-            env.action_space.n,  # noqa: F821
-            env.observation_space.shape,
-        )
-        self._target_network = PacManDQN(
-            env.action_space.n,  # noqa: F821
-            env.observation_space.shape,
-        )
+        self._online_network = PacManDQN(env.action_space.n)  # noqa: F821
+        self._target_network = PacManDQN(env.action_space.n)  # noqa: F821
         self._online_network.compile(
             loss="mse", optimizer=tf.keras.optimizers.Adam(settings.LEARNING_RATE)
         )
 
-        dummy = tf.random.normal((1,) + self._env.observation_space.shape)
+        dummy = tf.random.normal((1,) + env.observation_space.shape)
         self._online_network.predict(dummy, verbose=0)
         self._target_network.predict(dummy, verbose=0)
         self._target_network.set_weights(self._online_network.get_weights())
@@ -75,17 +69,14 @@ class PacManAgent:
 
     def _replay_experience(self) -> float:
         states, actions, rewards, next_states, dones = self._memory.sample(settings.BATCH_SIZE)
+        next_qs = self._target_network.predict(next_states, verbose=0)
+        max_next_qs = np.max(next_qs, axis=1)
+
+        targets = rewards + settings.DISCOUNT_FACTOR * max_next_qs * (1 - dones.astype(np.float32))
         current_qs = self._online_network.predict(states, verbose=0)
-        target_qs = self._target_network.predict(next_states, verbose=0)
-        max_target_qs = np.amax(target_qs, axis=1)
-        for idx in range(settings.BATCH_SIZE):
-            action, reward, done = actions[idx], rewards[idx], dones[idx]
-            current_qs[idx][action] = (
-                reward if done else reward + settings.DISCOUNT_FACTOR * max_target_qs[idx]
-            )
-        history = self._online_network.fit(
-            states, current_qs, settings.BATCH_SIZE, epochs=1, verbose=0
-        )
+        current_qs[np.arange(settings.BATCH_SIZE), actions] = targets
+
+        history = self._online_network.fit(states, current_qs, epochs=1, verbose=0)
         return history.history["loss"][0]
 
     def act(self, state: np.ndarray, step: int) -> int:

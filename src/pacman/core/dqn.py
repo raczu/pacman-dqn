@@ -68,9 +68,9 @@ class ReplayMemory:
 
 
 class PacManDQN(Model):
-    def __init__(self, actions_num: int, shape: tuple[int, ...]) -> None:
+    def __init__(self, actions_num: int) -> None:
         super().__init__()
-        self.conv1 = layers.Conv2D(32, (8, 8), strides=4, activation="relu", input_shape=shape)
+        self.conv1 = layers.Conv2D(32, (8, 8), strides=4, activation="relu")
         self.conv2 = layers.Conv2D(64, (4, 4), strides=2, activation="relu")
         self.conv3 = layers.Conv2D(64, (3, 3), strides=1, activation="relu")
         self.flatten = layers.Flatten()
