@@ -3,24 +3,34 @@ from pathlib import Path
 
 import ale_py
 import gymnasium as gym
-import numpy as np
 import typer
-from gymnasium.wrappers import AtariPreprocessing, FrameStackObservation, TransformObservation
+from gymnasium.wrappers import RecordVideo
 
 from pacman.agent import PacManAgent
-from pacman.core import configure_logger, settings
-from pacman.utils import HWNObservation, parse_duration, rmtree
+from pacman.core import configure_logger
+from pacman.utils import make_env, parse_duration, rmtree
 
 # Register ale-py in Gymnasium API to use Ms. Pac-Man environment.
 gym.register_envs(ale_py)
 
+configure_logger()
+
 app = typer.Typer()
 
 TRAIN_OUTPUT_PATH: Path = typer.Option(
-    ".", "-o", "--output", help="Output path for training results (logs, model and data for plots)."
+    ".",
+    "-o",
+    "--output",
+    help="Output directory for training results (logs, model and data for plots).",
 )
 TRAINED_AGENT_PATH: Path = typer.Option(
-    ..., "-p", "--model-path", help="Trained DQN agent (.h5 extension) file path."
+    ..., "--model-path", help="Trained DQN agent (.h5 extension) file path."
+)
+TRAINED_AGENT_VIDEO_PATH: Path = typer.Option(
+    ".", "--video-path", help="Output directory for validation videos."
+)
+TRAINED_AGENT_VIDEO_EPISODES: int = typer.Option(
+    1, "--episodes", help="Number of episodes to record during validation."
 )
 PLOTS_DATA_PATH: Path = typer.Option(..., "--data-path", help="Training results data file.")
 TRAINING_DATA_DURATION: str = typer.Option(
@@ -31,21 +41,28 @@ TRAINING_DATA_DURATION: str = typer.Option(
 @app.command()
 def train(output: Path = TRAIN_OUTPUT_PATH) -> None:
     """Train the Ms. Pac-Man agent."""
-    configure_logger()
-    env = gym.make(
-        "ALE/MsPacman-v5", frameskip=1, repeat_action_probability=settings.REPEAT_ACTION_PROBABILITY
-    )
-    env = AtariPreprocessing(env, frame_skip=settings.FRAME_SKIP)
-    env = FrameStackObservation(env, settings.FRAME_STACK_SIZE)
-    env = TransformObservation(env, lambda obs: obs.astype(np.float32) / 255.0, None)
-    env = HWNObservation(env)
+    env = make_env()
     agent = PacManAgent(env)
     agent.train(output=output)
+    env.close()
 
 
 @app.command()
-def validate(path: Path = TRAINED_AGENT_PATH) -> None:
+def validate(
+    path: Path = TRAINED_AGENT_PATH,
+    output: Path = TRAINED_AGENT_VIDEO_PATH,
+    episodes: int = TRAINED_AGENT_VIDEO_EPISODES,
+) -> None:
     """Run the trained agent in the Atari environment."""
+    env = make_env()
+    env = RecordVideo(
+        env, video_folder=str(output), name_prefix="pacman-agent", episode_trigger=lambda x: True
+    )
+    agent = PacManAgent(env)
+    agent.load(path)
+    agent.validate(episodes=episodes)
+    env.close()
+    typer.secho(f"Validation video saved to: {output}", fg=typer.colors.GREEN)
 
 
 @app.command()

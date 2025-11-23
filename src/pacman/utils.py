@@ -3,6 +3,14 @@ from datetime import timedelta
 from pathlib import Path
 
 import gymnasium as gym
+import numpy as np
+from gymnasium.wrappers import (
+    AtariPreprocessing,
+    FrameStackObservation,
+    TransformObservation,
+)
+
+from pacman.core import settings
 
 _DURATION_RE = re.compile(r"(?P<value>\d+(?:\.\d+)?)(?P<unit>[smhdSMHD]s?)")
 _UNIT_TO_SECONDS = {
@@ -13,7 +21,7 @@ _UNIT_TO_SECONDS = {
 }
 
 
-class HWNObservation(gym.ObservationWrapper):
+class HWCObservation(gym.ObservationWrapper):
     """Gym observation wrapper to convert observations to HWC format."""
 
     def __init__(self, env: gym.Env) -> None:
@@ -73,3 +81,18 @@ def rmtree(directory: Path) -> None:
         for name in dirs:
             (root / name).rmdir()
     directory.rmdir()
+
+
+def make_env() -> gym.Env:
+    """Create and return a Gym environment for Ms. Pac-Man."""
+    env = gym.make(
+        "ALE/MsPacman-v5",
+        frameskip=1,
+        repeat_action_probability=settings.REPEAT_ACTION_PROBABILITY,
+        render_mode="rgb_array",
+    )
+    env = AtariPreprocessing(env, frame_skip=settings.FRAME_SKIP)
+    env = FrameStackObservation(env, settings.FRAME_STACK_SIZE)
+    env = TransformObservation(env, lambda obs: obs.astype(np.float32) / 255.0, None)
+    env = HWCObservation(env)
+    return env

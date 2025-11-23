@@ -175,5 +175,17 @@ class PacManAgent:
         self._online_network.save_weights(output / "agent-final.weights.h5")
         logger.info("Total training time: %s", datetime.now() - start)
 
-    def validate(self) -> None:
+    def validate(self, episodes: int = 1) -> None:
         """Run the trained agent in the Atari environment."""
+        logger.info("Starting validation for %d episodes", episodes)
+        for _ in range(episodes):
+            state = self._env.reset()[0]
+            done = False
+            total = 0
+            while not done:
+                action = np.argmax(
+                    self._online_network.predict(np.expand_dims(state, axis=0), verbose=0)[0]
+                )
+                state, reward, done, _, _ = self._env.step(action)
+                total += reward
+            logger.info("Validation episode completed with total reward: %d", total)
