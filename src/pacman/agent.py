@@ -30,19 +30,28 @@ class PacManAgent:
             settings.EPSILON_DECAY_MODE,
         )
         self._memory = ReplayMemory(settings.REPLAY_MEMORY_SIZE)
-        self._online_network = PacManDQN(env.action_space.n)  # noqa: F821
-        self._target_network = PacManDQN(env.action_space.n)  # noqa: F821
-        optimizer = tf.keras.optimizers.Adam(settings.LEARNING_RATE)
-        self._online_network.compile(loss="mse", optimizer=optimizer)
-        self._target_network.compile(loss="mse", optimizer=optimizer)
+
+        self._online_network = PacManDQN(
+            env.action_space.n,
+            env.observation_space.shape,  # noqa: F821
+        )
+        self._target_network = PacManDQN(
+            env.action_space.n,
+            env.observation_space.shape,  # noqa: F821
+        )
+        self._online_network.compile(
+            loss="mse", optimizer=tf.keras.optimizers.Adam(settings.LEARNING_RATE)
+        )
+
+        dummy = tf.random.normal((1,) + self._env.observation_space.shape)
+        self._online_network.predict(dummy, verbose=0)
+        self._target_network.predict(dummy, verbose=0)
+        self._target_network.set_weights(self._online_network.get_weights())
 
     def load(self, model: Path) -> Self:
         """Load a trained agent from a file."""
         if not model.name.lower().endswith(".weights.h5"):
             raise ValueError("Model file with weights must end with '.weights.h5'")
-        self._online_network.predict(
-            tf.random.normal((1,) + self._env.observation_space.shape), verbose=0
-        )
         self._online_network.load_weights(model)
 
     def _warmup_replay_memory(self) -> None:
@@ -127,6 +136,8 @@ class PacManAgent:
                     and step % settings.TRAIN_FREQ == 0
                 ):
                     loss = self._replay_experience()
+
+                if step % settings.NETWORK_SYNC_FREQ == 0:
                     self._soft_update_target_network()
                 step += 1
 
