@@ -77,10 +77,11 @@ class PacManAgent:
         states, actions, rewards, next_states, dones = self._memory.sample(settings.BATCH_SIZE)
         current_qs = self._online_network.predict(states, verbose=0)
         target_qs = self._target_network.predict(next_states, verbose=0)
+        max_target_qs = np.amax(target_qs, axis=1)
         for idx in range(settings.BATCH_SIZE):
             action, reward, done = actions[idx], rewards[idx], dones[idx]
             current_qs[idx][action] = (
-                reward if done else reward + settings.DISCOUNT_FACTOR * np.max(target_qs[idx])
+                reward if done else reward + settings.DISCOUNT_FACTOR * max_target_qs[idx]
             )
         history = self._online_network.fit(
             states, current_qs, settings.BATCH_SIZE, epochs=1, verbose=0
