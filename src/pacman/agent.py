@@ -131,6 +131,8 @@ class PacManAgent:
 
                 if step % settings.NETWORK_SYNC_FREQ == 0:
                     self._soft_update_target_network()
+
+                state = next_state
                 step += 1
 
             rewards.append(total)
