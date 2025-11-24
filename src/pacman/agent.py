@@ -177,9 +177,7 @@ class PacManAgent:
             done = False
             total = 0
             while not done:
-                action = np.argmax(
-                    self._online_network.predict(np.expand_dims(state, axis=0), verbose=0)[0]
-                )
+                action = self.act(state, step=settings.EPSILON_DECAY_STEPS + 1)
                 state, reward, done, _, _ = self._env.step(action)
                 total += reward
             logger.info("Validation episode completed with total reward: %d", total)
