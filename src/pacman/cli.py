@@ -68,7 +68,7 @@ def validate(
     episodes: int = TRAINED_AGENT_VIDEO_EPISODES,
 ) -> None:
     """Run the trained agent in the Atari environment."""
-    if episodes > 0:
+    if episodes > 1:
         ts = datetime.now().strftime("%Y%m%d%H%M%S")
         output = output / f"validation-{ts}"
         typer.secho(

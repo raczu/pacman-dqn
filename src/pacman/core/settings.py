@@ -20,6 +20,7 @@ class Settings:
     FRAME_SKIP: int = 4
     REPEAT_ACTION_PROBABILITY: float = 0
     FRAME_STACK_SIZE: int = 4
+    NOOP_MAX: int = 30
 
     def jsonify(self, indent: int = 2) -> str:
         return json.dumps({k: getattr(self, k) for k in dir(self) if k.isupper()}, indent=indent)

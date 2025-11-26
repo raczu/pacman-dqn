@@ -92,7 +92,7 @@ def make_env() -> gym.Env:
         repeat_action_probability=settings.REPEAT_ACTION_PROBABILITY,
         render_mode="rgb_array",
     )
-    env = AtariPreprocessing(env, frame_skip=settings.FRAME_SKIP)
+    env = AtariPreprocessing(env, frame_skip=settings.FRAME_SKIP, noop_max=settings.NOOP_MAX)
     env = FrameStackObservation(env, settings.FRAME_STACK_SIZE)
     env = TransformObservation(env, lambda obs: obs.astype(np.float32) / 255.0, None)
     env = HWCObservation(env)
