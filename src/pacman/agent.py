@@ -160,10 +160,10 @@ class PacManAgent:
 
         start = datetime.now()
         logger.info("Training started, total episodes: %d", settings.TOTAL_EPISODES)
-        logger.info("Warming up replay memory (min size: %d)", settings.MIN_REPLAY_MEMORY_SIZE)
+        logger.info("Warming up replay memory (min size: %d)...", settings.MIN_REPLAY_MEMORY_SIZE)
         self._warmup_replay_memory()
 
-        logger.info("Starting main training loop with %d experiences", len(self._memory))
+        logger.info("Starting main training loop with %d experiences...", len(self._memory))
         self._train_over_episodes(output)
 
         logger.info(
@@ -174,7 +174,7 @@ class PacManAgent:
 
     def validate(self, episodes: int = 1) -> None:
         """Run the trained agent in the Atari environment."""
-        logger.info("Starting validation for %d episodes", episodes)
+        logger.info("Starting validation for %d episode(s)...", episodes)
         rewards = []
         for _ in range(episodes):
             state = self._env.reset()[0]

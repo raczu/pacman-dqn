@@ -3,6 +3,7 @@ from datetime import timedelta
 from pathlib import Path
 
 import gymnasium as gym
+import matplotlib.pyplot as plt
 import numpy as np
 from gymnasium.wrappers import (
     AtariPreprocessing,
@@ -96,3 +97,40 @@ def make_env() -> gym.Env:
     env = TransformObservation(env, lambda obs: obs.astype(np.float32) / 255.0, None)
     env = HWCObservation(env)
     return env
+
+
+def _prepare_plot(xlabel: str, ylabel: str) -> None:
+    plt.figure(figsize=(12, 8))
+    plt.grid(True)
+    plt.xlabel(xlabel)
+    plt.ylabel(ylabel)
+
+
+def save_learning_curve_plot(
+    episodes: list[int], rewards: list[float], window: int, output: Path
+) -> None:
+    """Save a learning curve plot from training statistics."""
+    _prepare_plot(xlabel="Episode", ylabel="Score")
+    plt.ylim(None, np.percentile(rewards, 95))
+    plt.plot(episodes, rewards, color="gray", alpha=0.5)
+    mov = np.convolve(rewards, np.ones(window) / window, mode="valid")
+    plt.plot(episodes[window - 1 :], mov, color="red")
+    plt.savefig(output / "learning-curve.png")
+
+
+def save_epsilon_decay_plot(episodes: list[int], epsilons: list[float], output: Path) -> None:
+    """Save an epsilon decay plot from training statistics."""
+    _prepare_plot(xlabel="Episode", ylabel="Epsilon")
+    plt.plot(episodes, epsilons, color="blue")
+    plt.savefig(output / "epsilon-decay.png")
+
+
+def save_loss_curve_plot(
+    episodes: list[int], losses: list[float], window: int, output: Path
+) -> None:
+    """Save a loss curve plot from training statistics."""
+    _prepare_plot(xlabel="Episode", ylabel="Loss")
+    mask = [loss != 0 for loss in losses]
+    mov = np.convolve(np.asarray(losses)[mask], np.ones(window) / window, mode="valid")
+    plt.plot(np.asarray(episodes)[mask][window - 1 :], mov, color="green")
+    plt.savefig(output / "loss-curve.png")
