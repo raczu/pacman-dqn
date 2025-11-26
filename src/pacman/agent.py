@@ -115,7 +115,7 @@ class PacManAgent:
             state = self._env.reset()[0]
             done = False
             total = 0.0
-            loss = 0.0
+            losses = []
             while not done:
                 action = self.act(state, step=step)
                 next_state, reward, done, _, _ = self._env.step(action)
@@ -128,6 +128,7 @@ class PacManAgent:
                     and step % settings.TRAIN_FREQ == 0
                 ):
                     loss = self._replay_experience()
+                    losses.append(loss)
 
                 if step % settings.NETWORK_SYNC_FREQ == 0:
                     self._soft_update_target_network()
@@ -141,7 +142,7 @@ class PacManAgent:
                 step=step,
                 epsilon=self._epsilon.value(step),
                 reward=total,
-                loss=loss,
+                loss=np.mean(losses) if losses else 0.0,
             )
             self._summarize_episode(stats, rewards, output)
 
@@ -174,6 +175,7 @@ class PacManAgent:
     def validate(self, episodes: int = 1) -> None:
         """Run the trained agent in the Atari environment."""
         logger.info("Starting validation for %d episodes", episodes)
+        rewards = []
         for _ in range(episodes):
             state = self._env.reset()[0]
             done = False
@@ -182,4 +184,6 @@ class PacManAgent:
                 action = self.act(state, step=settings.EPSILON_DECAY_STEPS + 1)
                 state, reward, done, _, _ = self._env.step(action)
                 total += reward
+            rewards.append(total)
             logger.info("Validation episode completed with total reward: %d", total)
+        logger.info("Average reward over %d episodes: %.2f", episodes, np.mean(rewards))
