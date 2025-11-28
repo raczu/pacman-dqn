@@ -21,3 +21,5 @@ wheels/
 
 # Ms. Pac-Man agent specific ignores
 training-*/
+plots-*/
+validation-*/

@@ -1,13 +1,14 @@
 import json
 from datetime import datetime
 from pathlib import Path
+from typing import Literal
 
 import ale_py
 import gymnasium as gym
 import typer
 from gymnasium.wrappers import RecordVideo
 
-from pacman.agent import PacManAgent
+from pacman.agents import AgentFactory
 from pacman.core import TrainingStats, configure_logger
 from pacman.utils import (
     make_env,
@@ -31,14 +32,22 @@ TRAIN_OUTPUT_PATH: Path = typer.Option(
     "--output",
     help="Output directory for training results (logs, model and data for plots).",
 )
-TRAINED_AGENT_PATH: Path = typer.Option(
-    ..., "--model-path", help="Trained DQN agent (.h5 extension) file path."
+TRAIN_AGENT_TYPE: Literal["dqn", "ddqn"] = typer.Option(
+    "dqn", "--agent", help="Type of agent to train."
 )
-TRAINED_AGENT_VIDEO_PATH: Path = typer.Option(
+TRAINED_AGENT_PATH: Path | None = typer.Option(
+    None,
+    "--model-path",
+    help="Trained DQN agent (.h5 extension) file path. Not required for random agent.",
+)
+VALIDATION_VIDEO_PATH: Path = typer.Option(
     ".", "--video-path", help="Output directory for validation videos."
 )
-TRAINED_AGENT_VIDEO_EPISODES: int = typer.Option(
+VALIDATION_VIDEO_EPISODES: int = typer.Option(
     1, "--episodes", help="Number of episodes to record during validation."
+)
+VALIDATION_AGENT_TYPE: Literal["dqn", "ddqn", "random"] = typer.Option(
+    "dqn", "--agent", help="Type of agent to validate."
 )
 PLOTS_DATA_PATH: Path = typer.Option(
     ..., "--data-path", help="Training results data file (.jsonl extension)."
@@ -53,21 +62,31 @@ TRAINING_DATA_DURATION: str = typer.Option(
 
 
 @app.command()
-def train(output: Path = TRAIN_OUTPUT_PATH) -> None:
+def train(
+    output: Path = TRAIN_OUTPUT_PATH, agent_type: Literal["dqn", "ddqn"] = TRAIN_AGENT_TYPE
+) -> None:
     """Train the Ms. Pac-Man agent."""
     env = make_env()
-    agent = PacManAgent(env)
+    agent = AgentFactory.create(agent_type, env)
     agent.train(output=output)
     env.close()
 
 
 @app.command()
 def validate(
-    path: Path = TRAINED_AGENT_PATH,
-    output: Path = TRAINED_AGENT_VIDEO_PATH,
-    episodes: int = TRAINED_AGENT_VIDEO_EPISODES,
+    path: Path | None = TRAINED_AGENT_PATH,
+    agent_type: Literal["dqn", "ddqn", "random"] = VALIDATION_AGENT_TYPE,
+    output: Path = VALIDATION_VIDEO_PATH,
+    episodes: int = VALIDATION_VIDEO_EPISODES,
 ) -> None:
-    """Run the trained agent in the Atari environment."""
+    """Run the agent in the Atari environment."""
+    if agent_type != "random" and path is None:
+        typer.secho(
+            "A trained agent model path must be provided for DQN or DDQN agents.",
+            fg=typer.colors.RED,
+        )
+        raise typer.Exit(code=1)
+
     if episodes > 1:
         ts = datetime.now().strftime("%Y%m%d%H%M%S")
         output = output / f"validation-{ts}"
@@ -81,8 +100,9 @@ def validate(
     env = RecordVideo(
         env, video_folder=str(output), name_prefix="pacman-agent", episode_trigger=lambda x: True
     )
-    agent = PacManAgent(env)
-    agent.load(path)
+    agent = AgentFactory.create(agent_type, env)
+    if path is not None:
+        agent.load(path)
     agent.validate(episodes=episodes)
     env.close()
     typer.secho(f"Validation video(s) saved to: {output}", fg=typer.colors.GREEN)

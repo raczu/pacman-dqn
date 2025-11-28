@@ -1,7 +1,7 @@
 import logging
+from abc import ABC, abstractmethod
 from datetime import datetime
 from pathlib import Path
-from typing import Self
 
 import gymnasium as gym
 import numpy as np
@@ -20,9 +20,36 @@ from pacman.core import (
 logger = logging.getLogger(__name__)
 
 
-class PacManAgent:
+class Agent(ABC):
     def __init__(self, env: gym.Env) -> None:
         self._env = env
+
+    @abstractmethod
+    def act(self, state: np.ndarray) -> int:
+        raise NotImplementedError
+
+    def validate(self, episodes: int = 1) -> None:
+        """Validate the agent performance over a number of episodes."""
+        logger.info("Starting validation for %d episode(s)...", episodes)
+        rewards = []
+        for _ in range(episodes):
+            state = self._env.reset()[0]
+            done = False
+            total = 0
+            while not done:
+                action = self.act(state)
+                state, reward, done, _, _ = self._env.step(action)
+                total += reward
+            rewards.append(total)
+            logger.info("Validation episode completed with total reward: %d", total)
+        logger.info("Average reward over %d episode(s): %.2f", episodes, np.mean(rewards))
+
+
+class TrainableAgent(Agent):
+    """Base class for trainable agents using Deep Q-Networks (DQN)."""
+
+    def __init__(self, env: gym.Env) -> None:
+        super().__init__(env)
         self._epsilon = EpsilonGreedy(
             settings.EPSILON_START,
             settings.EPSILON_END,
@@ -30,6 +57,7 @@ class PacManAgent:
             settings.EPSILON_DECAY_MODE,
         )
         self._memory = ReplayMemory(settings.REPLAY_MEMORY_SIZE)
+        self._step = 0
 
         self._online_network = PacManDQN(env.action_space.n)  # noqa: F821
         self._target_network = PacManDQN(env.action_space.n)  # noqa: F821
@@ -42,11 +70,18 @@ class PacManAgent:
         self._target_network.predict(dummy, verbose=0)
         self._target_network.set_weights(self._online_network.get_weights())
 
-    def load(self, model: Path) -> Self:
+    def load(self, model: Path) -> None:
         """Load a trained agent from a file."""
         if not model.name.lower().endswith(".weights.h5"):
             raise ValueError("Model file with weights must end with '.weights.h5'")
         self._online_network.load_weights(model)
+
+    def act(self, state: np.ndarray) -> int:
+        """Select an action for the given state using epsilon-greedy policy."""
+        if np.random.rand() < self._epsilon.value(self._step):
+            return self._env.action_space.sample()
+        qs = self._online_network.predict(np.expand_dims(state, axis=0), verbose=0)
+        return np.argmax(qs[0])
 
     def _warmup_replay_memory(self) -> None:
         state = self._env.reset()[0]
@@ -67,24 +102,46 @@ class PacManAgent:
         ]
         self._target_network.set_weights(updated_weights)
 
+    @abstractmethod
+    def _compute_targets(
+        self, rewards: np.ndarray, next_states: np.ndarray, dones: np.ndarray
+    ) -> np.ndarray:
+        raise NotImplementedError
+
     def _replay_experience(self) -> float:
         states, actions, rewards, next_states, dones = self._memory.sample(settings.BATCH_SIZE)
-        next_qs = self._target_network.predict(next_states, verbose=0)
-        max_next_qs = np.max(next_qs, axis=1)
-
-        targets = rewards + settings.DISCOUNT_FACTOR * max_next_qs * (1 - dones.astype(np.float32))
+        targets = self._compute_targets(rewards, next_states, dones)
         current_qs = self._online_network.predict(states, verbose=0)
         current_qs[np.arange(settings.BATCH_SIZE), actions] = targets
 
         history = self._online_network.fit(states, current_qs, epochs=1, verbose=0)
         return history.history["loss"][0]
 
-    def act(self, state: np.ndarray, step: int) -> int:
-        """Select an action for the given state using epsilon-greedy policy."""
-        if np.random.rand() < self._epsilon.value(step):
-            return self._env.action_space.sample()
-        qs = self._online_network.predict(np.expand_dims(state, axis=0), verbose=0)
-        return np.argmax(qs[0])
+    def _run_episode(self) -> tuple[float, list[float]]:
+        """Run a single episode and return the total reward and losses."""
+        state = self._env.reset()[0]
+        done = False
+        total = 0.0
+        losses = []
+        while not done:
+            self._step += 1
+            action = self.act(state)
+            next_state, reward, done, _, _ = self._env.step(action)
+            reward = float(reward)
+            total += reward
+            self._memory.push(Experience(state, action, reward, next_state, done))
+
+            if (
+                len(self._memory) >= settings.MIN_REPLAY_MEMORY_SIZE
+                and self._step % settings.TRAIN_FREQ == 0
+            ):
+                loss = self._replay_experience()
+                losses.append(loss)
+
+            if self._step % settings.NETWORK_SYNC_FREQ == 0:
+                self._soft_update_target_network()
+            state = next_state
+        return total, losses
 
     def _summarize_episode(self, stats: TrainingStats, rewards: list[float], output: Path) -> None:
         with (output / "training-stats.jsonl").open("a") as f:
@@ -109,38 +166,15 @@ class PacManAgent:
             )
 
     def _train_over_episodes(self, output: Path) -> None:
-        step = 1
+        self._step = 0
         rewards = []
         for episode in range(1, settings.TOTAL_EPISODES + 1):
-            state = self._env.reset()[0]
-            done = False
-            total = 0.0
-            losses = []
-            while not done:
-                action = self.act(state, step=step)
-                next_state, reward, done, _, _ = self._env.step(action)
-                reward = float(reward)
-                total += reward
-                self._memory.push(Experience(state, action, reward, next_state, done))
-
-                if (
-                    len(self._memory) >= settings.MIN_REPLAY_MEMORY_SIZE
-                    and step % settings.TRAIN_FREQ == 0
-                ):
-                    loss = self._replay_experience()
-                    losses.append(loss)
-
-                if step % settings.NETWORK_SYNC_FREQ == 0:
-                    self._soft_update_target_network()
-
-                state = next_state
-                step += 1
-
+            total, losses = self._run_episode()
             rewards.append(total)
             stats = TrainingStats(
                 episode=episode,
-                step=step,
-                epsilon=self._epsilon.value(step),
+                step=self._step,
+                epsilon=self._epsilon.value(self._step),
                 reward=total,
                 loss=np.mean(losses) if losses else 0.0,
             )
@@ -171,19 +205,3 @@ class PacManAgent:
         )
         self._online_network.save_weights(output / "agent-final.weights.h5")
         logger.info("Total training time: %s", datetime.now() - start)
-
-    def validate(self, episodes: int = 1) -> None:
-        """Run the trained agent in the Atari environment."""
-        logger.info("Starting validation for %d episode(s)...", episodes)
-        rewards = []
-        for _ in range(episodes):
-            state = self._env.reset()[0]
-            done = False
-            total = 0
-            while not done:
-                action = self.act(state, step=settings.EPSILON_DECAY_STEPS + 1)
-                state, reward, done, _, _ = self._env.step(action)
-                total += reward
-            rewards.append(total)
-            logger.info("Validation episode completed with total reward: %d", total)
-        logger.info("Average reward over %d episodes: %.2f", episodes, np.mean(rewards))
