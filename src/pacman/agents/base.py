@@ -2,6 +2,7 @@ import logging
 from abc import ABC, abstractmethod
 from datetime import datetime
 from pathlib import Path
+from typing import override
 
 import gymnasium as gym
 import numpy as np
@@ -76,12 +77,20 @@ class TrainableAgent(Agent):
             raise ValueError("Model file with weights must end with '.weights.h5'")
         self._online_network.load_weights(model)
 
+    @override
     def act(self, state: np.ndarray) -> int:
         """Select an action for the given state using epsilon-greedy policy."""
         if np.random.rand() < self._epsilon.value(self._step):
             return self._env.action_space.sample()
         qs = self._online_network.predict(np.expand_dims(state, axis=0), verbose=0)
         return np.argmax(qs[0])
+
+    @override
+    def validate(self, episodes: int = 1) -> None:
+        # Override to use the lowest epsilon based on training settings.
+        self._step = settings.EPSILON_DECAY_STEPS + 1
+        super().validate(episodes)
+        self._step = 0
 
     def _warmup_replay_memory(self) -> None:
         state = self._env.reset()[0]
