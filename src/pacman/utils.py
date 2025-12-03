@@ -11,7 +11,7 @@ from gymnasium.wrappers import (
     TransformObservation,
 )
 
-from pacman.core import settings
+from pacman.core import TrainingStatsHistory, settings
 
 _DURATION_RE = re.compile(r"(?P<value>\d+(?:\.\d+)?)(?P<unit>[smhdSMHD]s?)")
 _UNIT_TO_SECONDS = {
@@ -107,30 +107,38 @@ def _prepare_plot(xlabel: str, ylabel: str) -> None:
 
 
 def save_learning_curve_plot(
-    episodes: list[int], rewards: list[float], window: int, output: Path
+    histories: list[TrainingStatsHistory], window: int, output: Path
 ) -> None:
-    """Save a learning curve plot from training statistics."""
+    """Save a learning curve plot from history of training statistics."""
     _prepare_plot(xlabel="Episode", ylabel="Score")
-    plt.ylim(None, np.percentile(rewards, 95))
-    plt.plot(episodes, rewards, color="gray", alpha=0.5)
-    mov = np.convolve(rewards, np.ones(window) / window, mode="valid")
-    plt.plot(episodes[window - 1 :], mov, color="red")
+    plt.ylim(None, max(np.percentile(stat.rewards, 95) for stat in histories))
+
+    cmap = plt.get_cmap("Set1")
+    for idx, history in enumerate(histories):
+        color = cmap(idx % cmap.N)
+        plt.plot(history.episodes, history.rewards, color=color, alpha=0.3)
+        mov = np.convolve(history.rewards, np.ones(window) / window, mode="valid")
+        plt.plot(history.episodes[window - 1 :], mov, color=color)
     plt.savefig(output / "learning-curve.png")
 
 
-def save_epsilon_decay_plot(episodes: list[int], epsilons: list[float], output: Path) -> None:
-    """Save an epsilon decay plot from training statistics."""
+def save_epsilon_decay_plot(histories: list[TrainingStatsHistory], output: Path) -> None:
+    """Save an epsilon decay plot from history of training statistics."""
     _prepare_plot(xlabel="Episode", ylabel="Epsilon")
-    plt.plot(episodes, epsilons, color="blue")
+    cmap = plt.get_cmap("Set1")
+    for idx, history in enumerate(histories):
+        color = cmap(idx % cmap.N)
+        plt.plot(history.episodes, history.epsilons, color=color)
     plt.savefig(output / "epsilon-decay.png")
 
 
-def save_loss_curve_plot(
-    episodes: list[int], losses: list[float], window: int, output: Path
-) -> None:
-    """Save a loss curve plot from training statistics."""
+def save_loss_curve_plot(histories: list[TrainingStatsHistory], window: int, output: Path) -> None:
+    """Save a loss curve plot from history of training statistics."""
     _prepare_plot(xlabel="Episode", ylabel="Loss")
-    mask = [loss != 0 for loss in losses]
-    mov = np.convolve(np.asarray(losses)[mask], np.ones(window) / window, mode="valid")
-    plt.plot(np.asarray(episodes)[mask][window - 1 :], mov, color="green")
+    cmap = plt.get_cmap("Set1")
+    for idx, history in enumerate(histories):
+        mask = [loss != 0 for loss in history.losses]
+        color = cmap(idx % cmap.N)
+        mov = np.convolve(np.asarray(history.losses)[mask], np.ones(window) / window, mode="valid")
+        plt.plot(np.asarray(history.episodes)[mask][window - 1 :], mov, color=color)
     plt.savefig(output / "loss-curve.png")

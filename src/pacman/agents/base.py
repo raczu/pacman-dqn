@@ -13,7 +13,7 @@ from pacman.core import (
     Experience,
     PacManDQN,
     ReplayMemory,
-    TrainingStats,
+    TrainingStepStats,
     add_file_handler,
     settings,
 )
@@ -152,7 +152,9 @@ class TrainableAgent(Agent):
             state = next_state
         return total, losses
 
-    def _summarize_episode(self, stats: TrainingStats, rewards: list[float], output: Path) -> None:
+    def _summarize_episode(
+        self, stats: TrainingStepStats, rewards: list[float], output: Path
+    ) -> None:
         with (output / "training-stats.jsonl").open("a") as f:
             f.write(f"{stats.jsonify()}\n")
             f.flush()
@@ -180,7 +182,7 @@ class TrainableAgent(Agent):
         for episode in range(1, settings.TOTAL_EPISODES + 1):
             total, losses = self._run_episode()
             rewards.append(total)
-            stats = TrainingStats(
+            stats = TrainingStepStats(
                 episode=episode,
                 step=self._step,
                 epsilon=self._epsilon.value(self._step),

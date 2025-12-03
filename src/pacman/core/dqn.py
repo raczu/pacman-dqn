@@ -2,6 +2,7 @@ import json
 import random
 from collections import deque
 from dataclasses import asdict, dataclass
+from functools import cached_property
 from typing import Literal
 
 import numpy as np
@@ -30,7 +31,7 @@ class Experience:
 
 
 @dataclass(frozen=True, slots=True)
-class TrainingStats:
+class TrainingStepStats:
     """Statistics for a single training step."""
 
     episode: int
@@ -41,6 +42,33 @@ class TrainingStats:
 
     def jsonify(self) -> str:
         return json.dumps(asdict(self))
+
+
+@dataclass(frozen=True)
+class TrainingStatsHistory:
+    """Historical record of training statistics across steps."""
+
+    stats: list[TrainingStepStats]
+
+    @cached_property
+    def episodes(self) -> list[int]:
+        return [stat.episode for stat in self.stats]
+
+    @cached_property
+    def steps(self) -> list[int]:
+        return [stat.step for stat in self.stats]
+
+    @cached_property
+    def epsilons(self) -> list[float]:
+        return [stat.epsilon for stat in self.stats]
+
+    @cached_property
+    def rewards(self) -> list[float]:
+        return [stat.reward for stat in self.stats]
+
+    @cached_property
+    def losses(self) -> list[float]:
+        return [stat.loss for stat in self.stats]
 
 
 class ReplayMemory:

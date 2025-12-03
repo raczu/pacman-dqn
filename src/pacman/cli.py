@@ -9,7 +9,7 @@ import typer
 from gymnasium.wrappers import RecordVideo
 
 from pacman.agents import AgentFactory
-from pacman.core import TrainingStats, configure_logger
+from pacman.core import TrainingStatsHistory, TrainingStepStats, configure_logger
 from pacman.utils import (
     make_env,
     parse_duration,
@@ -49,8 +49,8 @@ VALIDATION_VIDEO_EPISODES: int = typer.Option(
 VALIDATION_AGENT_TYPE: Literal["dqn", "ddqn", "random"] = typer.Option(
     "dqn", "--agent", help="Type of agent to validate."
 )
-PLOTS_DATA_PATH: Path = typer.Option(
-    ..., "--data-path", help="Training results data file (.jsonl extension)."
+PLOTS_DATA_PATHS: list[Path] = typer.Option(
+    ..., "--data-path", help="Training results data file(s) (.jsonl extension)."
 )
 PLOT_AVERAGE_WINDOW: int = typer.Option(
     100, "--avg-window", help="Moving average window size for learning curve."
@@ -110,28 +110,37 @@ def validate(
 
 @app.command()
 def plot(
-    path: Path = PLOTS_DATA_PATH,
+    paths: list[Path] = PLOTS_DATA_PATHS,
     output: Path = PLOTS_OUTPUT_PATH,
     window: int = PLOT_AVERAGE_WINDOW,
 ) -> None:
     """Plot training results from the specified file(s)."""
-    if not path.exists():
-        typer.secho(f"Data file not found: {path}", fg=typer.colors.RED)
-        raise typer.Exit(code=1)
+    for path in paths:
+        if not path.exists():
+            typer.secho(f"Data file not found: {path}", fg=typer.colors.RED)
+            raise typer.Exit(code=1)
     ts = datetime.now().strftime("%Y%m%d%H%M%S")
     output = output / f"plots-{ts}"
     typer.secho(f"Creating output directory for plots: {output}", fg=typer.colors.BLUE)
     output.mkdir()
-    with path.open() as f:
-        stats = [TrainingStats(**json.loads(line)) for line in f]
 
-    episodes = [stat.episode for stat in stats]
-    if len(episodes) < window:
-        typer.secho("Moving average window is larger than number of episodes", fg=typer.colors.RED)
-        typer.Exit(code=1)
-    save_learning_curve_plot(episodes, [stat.reward for stat in stats], window, output)
-    save_epsilon_decay_plot(episodes, [stat.epsilon for stat in stats], output)
-    save_loss_curve_plot(episodes, [stat.loss for stat in stats], window, output)
+    histories = []
+    for path in paths:
+        with path.open() as f:
+            history = TrainingStatsHistory(
+                stats=[TrainingStepStats(**json.loads(line)) for line in f]
+            )
+        if len(history.episodes) < window:
+            typer.secho(
+                f"Moving average window is larger than number of episodes in file: {path}",
+                fg=typer.colors.RED,
+            )
+            typer.Exit(code=1)
+        histories.append(history)
+
+    save_learning_curve_plot(histories, window, output)
+    save_epsilon_decay_plot(histories, output)
+    save_loss_curve_plot(histories, window, output)
 
 
 @app.command()
