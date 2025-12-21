@@ -2,7 +2,7 @@ import logging
 from abc import ABC, abstractmethod
 from datetime import datetime
 from pathlib import Path
-from typing import override
+from typing import SupportsFloat, override
 
 import gymnasium as gym
 import numpy as np
@@ -96,7 +96,8 @@ class TrainableAgent(Agent):
         state = self._env.reset()[0]
         while len(self._memory) < settings.MIN_REPLAY_MEMORY_SIZE:
             action = self._env.action_space.sample()
-            next_state, reward, done, _, _ = self._env.step(action)
+            next_state, reward, done, truncated, _ = self._env.step(action)
+            reward = self._shape_reward(reward, truncated)
             experience = Experience(state, action, float(reward), next_state, done)
             self._memory.push(experience)
             state = next_state if not done else self._env.reset()[0]
@@ -110,6 +111,19 @@ class TrainableAgent(Agent):
             for ow, tw in zip(online_weights, target_weights, strict=True)
         ]
         self._target_network.set_weights(updated_weights)
+
+    @staticmethod
+    def _shape_reward(reward: SupportsFloat, truncated: bool) -> float:
+        """
+        Apply death penalty and normalization to the raw reward.
+
+        NOTE: This assumes truncation indicates Pac-Man lost a life. If using episode truncation
+        settings (e.g. max steps), this will incorrectly apply penalties.
+        """
+        reward = float(reward)
+        if truncated:
+            reward += settings.DEATH_PENALTY
+        return reward / 10.0 if settings.REWARD_NORMALIZATION else reward
 
     @abstractmethod
     def _compute_targets(
@@ -135,8 +149,8 @@ class TrainableAgent(Agent):
         while not done:
             self._step += 1
             action = self.act(state)
-            next_state, reward, done, _, _ = self._env.step(action)
-            reward = float(reward)
+            next_state, reward, done, truncated, _ = self._env.step(action)
+            reward = self._shape_reward(reward, truncated)
             total += reward
             self._memory.push(Experience(state, action, reward, next_state, done))
 
