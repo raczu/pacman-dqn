@@ -22,7 +22,10 @@ logger = logging.getLogger(__name__)
 
 
 class Agent(ABC):
+    _AGENT_TYPE: str = ""
+
     def __init__(self, env: gym.Env) -> None:
+        self._AGENT_TYPE = self._AGENT_TYPE or self.__class__.__name__
         self._env = env
 
     @abstractmethod
@@ -208,7 +211,7 @@ class TrainableAgent(Agent):
     def train(self, output: Path) -> None:
         """Train the agent and save results to the output path."""
         ts = datetime.now().strftime("%Y%m%d%H%M%S")
-        output = output / f"training-{ts}"
+        output = output / f"training-{self._AGENT_TYPE}-{ts}"
         logger.info("Creating output directory for training results: %s", output)
         output.mkdir()
         add_file_handler(output / "training.log", logger=logger)

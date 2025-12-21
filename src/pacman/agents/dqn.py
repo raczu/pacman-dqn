@@ -7,6 +7,8 @@ from pacman.core import settings
 
 
 class DQNAgent(TrainableAgent):
+    _AGENT_TYPE: str = "dqn"
+
     @override
     def _compute_targets(
         self, rewards: np.ndarray, next_states: np.ndarray, dones: np.ndarray
@@ -19,6 +21,8 @@ class DQNAgent(TrainableAgent):
 
 
 class DDQNAgent(TrainableAgent):
+    _AGENT_TYPE: str = "ddqn"
+
     @override
     def _compute_targets(
         self, rewards: np.ndarray, next_states: np.ndarray, dones: np.ndarray

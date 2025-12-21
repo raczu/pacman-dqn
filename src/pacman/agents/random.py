@@ -6,6 +6,8 @@ from pacman.agents.base import Agent
 
 
 class RandomAgent(Agent):
+    AGENT_TYPE: str = "random"
+
     @override
     def act(self, state: gym.Env) -> int:
         """Always select a random action."""

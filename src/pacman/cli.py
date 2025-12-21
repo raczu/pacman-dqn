@@ -89,7 +89,7 @@ def validate(
 
     if episodes > 1:
         ts = datetime.now().strftime("%Y%m%d%H%M%S")
-        output = output / f"validation-{ts}"
+        output = output / f"validation-{agent_type}-{ts}"
         typer.secho(
             "Creating output directory for validation videos: {output} as there are multiple episodes to record",
             fg=typer.colors.BLUE,
