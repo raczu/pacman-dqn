@@ -96,14 +96,21 @@ class TrainableAgent(Agent):
         self._step = 0
 
     def _warmup_replay_memory(self) -> None:
-        state = self._env.reset()[0]
+        state, info = self._env.reset()
+        lives = info.get("lives", 3)
         while len(self._memory) < settings.MIN_REPLAY_MEMORY_SIZE:
             action = self._env.action_space.sample()
-            next_state, reward, done, truncated, _ = self._env.step(action)
-            reward = self._shape_reward(reward, truncated)
+            next_state, reward, done, _, info = self._env.step(action)
+            death = info["lives"] < lives
+            reward = self._shape_reward(reward, death)
+            lives = info["lives"]
             experience = Experience(state, action, float(reward), next_state, done)
             self._memory.push(experience)
-            state = next_state if not done else self._env.reset()[0]
+            if done:
+                state, info = self._env.reset()
+                lives = info.get("lives", 3)
+            else:
+                state = next_state
 
     def _soft_update_target_network(self) -> None:
         """Soft update target network weights from the online network."""
@@ -116,15 +123,10 @@ class TrainableAgent(Agent):
         self._target_network.set_weights(updated_weights)
 
     @staticmethod
-    def _shape_reward(reward: SupportsFloat, truncated: bool) -> float:
-        """
-        Apply death penalty and normalization to the raw reward.
-
-        NOTE: This assumes truncation indicates Pac-Man lost a life. If using episode truncation
-        settings (e.g. max steps), this will incorrectly apply penalties.
-        """
+    def _shape_reward(reward: SupportsFloat, death: bool) -> float:
+        """Apply death penalty and normalization to the raw reward."""
         reward = float(reward)
-        if truncated:
+        if death:
             reward += settings.DEATH_PENALTY
         return reward / 10.0 if settings.REWARD_NORMALIZATION else reward
 
@@ -145,15 +147,18 @@ class TrainableAgent(Agent):
 
     def _run_episode(self) -> tuple[float, list[float]]:
         """Run a single episode and return the total reward and losses."""
-        state = self._env.reset()[0]
+        state, info = self._env.reset()
+        lives = info.get("lives", 3)
         done = False
         total = 0.0
         losses = []
         while not done:
             self._step += 1
             action = self.act(state)
-            next_state, reward, done, truncated, _ = self._env.step(action)
-            reward = self._shape_reward(reward, truncated)
+            next_state, reward, done, _, info = self._env.step(action)
+            death = info["lives"] < lives
+            reward = self._shape_reward(reward, death)
+            lives = info["lives"]
             total += reward
             self._memory.push(Experience(state, action, reward, next_state, done))
 
