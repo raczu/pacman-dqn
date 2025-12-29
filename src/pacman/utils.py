@@ -1,4 +1,5 @@
 import re
+from dataclasses import dataclass
 from datetime import timedelta
 from pathlib import Path
 
@@ -8,6 +9,7 @@ import numpy as np
 from gymnasium.wrappers import (
     AtariPreprocessing,
     FrameStackObservation,
+    RecordVideo,
     TransformObservation,
 )
 
@@ -84,18 +86,43 @@ def rmtree(directory: Path) -> None:
     directory.rmdir()
 
 
-def make_env() -> gym.Env:
+@dataclass(frozen=True)
+class PacManEnvConfig:
+    """Configuration for Ms. Pac-Man environment."""
+
+    frame_skip: int = settings.FRAME_SKIP
+    repeat_action_probability: float = settings.REPEAT_ACTION_PROBABILITY
+    frame_stack_size: int = settings.FRAME_STACK_SIZE
+    noop_max: int = settings.NOOP_MAX
+    terminal_on_life_loss: bool = settings.TERMINAL_ON_LIFE_LOSS
+    record_video: bool = False
+    video_directory: Path | None = None
+
+
+def make_env(config: PacManEnvConfig) -> gym.Env:
     """Create and return a Gym environment for Ms. Pac-Man."""
     env = gym.make(
         "ALE/MsPacman-v5",
         frameskip=1,
-        repeat_action_probability=settings.REPEAT_ACTION_PROBABILITY,
+        repeat_action_probability=config.repeat_action_probability,
         render_mode="rgb_array",
     )
-    env = AtariPreprocessing(env, frame_skip=settings.FRAME_SKIP, noop_max=settings.NOOP_MAX)
-    env = FrameStackObservation(env, settings.FRAME_STACK_SIZE)
+    env = AtariPreprocessing(
+        env,
+        frame_skip=config.frame_skip,
+        noop_max=config.noop_max,
+        terminal_on_life_loss=config.terminal_on_life_loss,
+    )
+    env = FrameStackObservation(env, config.frame_stack_size)
     env = TransformObservation(env, lambda obs: obs.astype(np.float32) / 255.0, None)
     env = HWCObservation(env)
+    if config.record_video and config.video_directory is not None:
+        env = RecordVideo(
+            env,
+            video_folder=str(config.video_directory),
+            name_prefix="pacman-agent",
+            episode_trigger=lambda x: True,
+        )
     return env
 
 

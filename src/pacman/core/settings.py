@@ -26,6 +26,9 @@ class Settings:
     REPEAT_ACTION_PROBABILITY: float = 0
     FRAME_STACK_SIZE: int = 4
     NOOP_MAX: int = 30
+    # Without this, agent reduces their aversion to death and seeks interactions with
+    # ghosts that offer high rewards at the expense of completing the maze.
+    TERMINAL_ON_LIFE_LOSS: bool = True
 
     # Whether to normalize rewards (all rewards are divided by 10).
     # Also applies to death penalty.

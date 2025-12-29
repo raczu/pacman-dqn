@@ -6,11 +6,11 @@ from typing import Literal
 import ale_py
 import gymnasium as gym
 import typer
-from gymnasium.wrappers import RecordVideo
 
 from pacman.agents import AgentFactory
 from pacman.core import TrainingStatsHistory, TrainingStepStats, configure_logger
 from pacman.utils import (
+    PacManEnvConfig,
     make_env,
     parse_duration,
     rmtree,
@@ -66,7 +66,8 @@ def train(
     output: Path = TRAIN_OUTPUT_PATH, agent_type: Literal["dqn", "ddqn"] = TRAIN_AGENT_TYPE
 ) -> None:
     """Train the Ms. Pac-Man agent."""
-    env = make_env()
+    config = PacManEnvConfig()
+    env = make_env(config)
     agent = AgentFactory.create(agent_type, env)
     agent.train(output=output)
     env.close()
@@ -96,10 +97,13 @@ def validate(
         )
         output.mkdir()
 
-    env = make_env()
-    env = RecordVideo(
-        env, video_folder=str(output), name_prefix="pacman-agent", episode_trigger=lambda x: True
+    config = PacManEnvConfig(
+        noop_max=0,
+        terminal_on_life_loss=False,
+        record_video=True,
+        video_directory=output,
     )
+    env = make_env(config)
     agent = AgentFactory.create(agent_type, env)
     if path is not None:
         agent.load(path)
