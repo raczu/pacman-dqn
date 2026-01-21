@@ -84,11 +84,15 @@ class ReplayMemory:
         Converts the sampled experiences into numpy arrays and returns them as a tuple.
         """
         batch = random.sample(self._memory, size)
-        states = np.stack([exp.state for exp in batch])
         actions = np.array([exp.action for exp in batch])
         rewards = np.array([exp.reward for exp in batch])
-        next_states = np.stack([exp.next_state for exp in batch])
         dones = np.array([exp.done for exp in batch])
+
+        raw_states = np.stack([exp.state for exp in batch])
+        raw_next_states = np.stack([exp.next_state for exp in batch])
+        states = raw_states.astype(np.float32) / 255.0
+        next_states = raw_next_states.astype(np.float32) / 255.0
+
         return states, actions, rewards, next_states, dones
 
     def __len__(self) -> int:

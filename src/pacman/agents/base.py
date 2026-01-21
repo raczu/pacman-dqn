@@ -85,7 +85,9 @@ class TrainableAgent(Agent):
         """Select an action for the given state using epsilon-greedy policy."""
         if np.random.rand() < self._epsilon.value(self._step):
             return self._env.action_space.sample()
-        qs = self._online_network.predict(np.expand_dims(state, axis=0), verbose=0)
+
+        normalized = state.astype(np.float32) / 255.0
+        qs = self._online_network.predict(np.expand_dims(normalized, axis=0), verbose=0)
         return np.argmax(qs[0])
 
     @override

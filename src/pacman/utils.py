@@ -10,7 +10,6 @@ from gymnasium.wrappers import (
     AtariPreprocessing,
     FrameStackObservation,
     RecordVideo,
-    TransformObservation,
 )
 
 from pacman.core import TrainingStatsHistory, settings
@@ -114,7 +113,6 @@ def make_env(config: PacManEnvConfig) -> gym.Env:
         terminal_on_life_loss=config.terminal_on_life_loss,
     )
     env = FrameStackObservation(env, config.frame_stack_size)
-    env = TransformObservation(env, lambda obs: obs.astype(np.float32) / 255.0, None)
     env = HWCObservation(env)
     if config.record_video and config.video_directory is not None:
         env = RecordVideo(
